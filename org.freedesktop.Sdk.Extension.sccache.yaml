@@ -1,0 +1,136 @@
+id: org.freedesktop.Sdk.Extension.sccache
+branch: '21.08'
+runtime: org.freedesktop.Sdk
+runtime-version: '21.08'
+sdk: org.freedesktop.Sdk
+build-extension: true
+separate-locales: false
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.musl
+  - org.freedesktop.Sdk.Extension.rust-musl
+build-options:
+  cflags: -static -I/usr/lib/sdk/sccache/include
+  cxxflags: -static -I/usr/lib/sdk/sccache/include
+  ldflags: -static -L/usr/lib/sdk/sccache/lib
+  prefix: /usr/lib/sdk/sccache
+  libdir: /usr/lib/sdk/sccache/lib
+  prepend-path: /usr/lib/sdk/sccache/bin
+  prepend-ld-library-path: /usr/lib/sdk/sccache/lib
+  prepend-pkg-config-path: /usr/lib/sdk/sccache/lib/pkgconfig
+  append-path: /usr/lib/sdk/musl/bin:/usr/lib/sdk/rust-musl/bin
+  strip: true
+  env:
+    - CC=x86_64-linux-musl-gcc
+    - CXX=x86_64-linux-musl-g++
+
+modules:
+  - name: prepare-ccache
+    buildsystem: simple
+    build-commands:
+      - |
+        set -e
+        if [ -n "$CCACHE_DIR" ]; then
+          install -dm755 ${FLATPAK_DEST}/bin
+          ln -s /usr/bin/ccache ${FLATPAK_DEST}/bin/x86_64-linux-musl-gcc
+          ln -s /usr/bin/ccache ${FLATPAK_DEST}/bin/x86_64-linux-musl-g++
+        fi
+    cleanup:
+      - '*'
+
+# - name: sccache-static-bin # use binary release
+#   buildsystem: simple
+#   build-commands:
+#     - install -Dm755 sccache{,-dist} -t ${FLATPAK_DEST}/bin/
+#   sources:
+#     - type: archive
+#       url: https://github.com/mozilla/sccache/releases/download/v0.3.0/sccache-v0.3.0-x86_64-unknown-linux-musl.tar.gz
+#       sha256: e6cd8485f93d683a49c83796b9986f090901765aa4feb40d191b03ea770311d8
+#       x-checker-data:
+#         type: anitya
+#         project-id: 227267
+#         stable-only: true
+#         url-template: https://github.com/mozilla/sccache/releases/download/v$version/sccache-v$version-x86_64-unknown-linux-musl.tar.gz
+#     - type: archive
+#       url: https://github.com/mozilla/sccache/releases/download/v0.3.0/sccache-dist-v0.3.0-x86_64-unknown-linux-musl.tar.gz
+#       sha256: ce4e3f5bd6ca3623b285cf935e416c724b2b5fc4de7c9988837fff112d70bf44
+#       x-checker-data:
+#         type: anitya
+#         project-id: 227267
+#         stable-only: true
+#         url-template: https://github.com/mozilla/sccache/releases/download/v$version/sccache-dist-v$version-x86_64-unknown-linux-musl.tar.gz
+
+  - name: sccache-static # build from source
+    buildsystem: simple
+    build-options:
+      append-ld-library-path: /usr/lib/sdk/musl/x86_64-linux-musl/lib
+      env:
+        - CARGO_VARS=
+          HOME=${FLATPAK_BUILDER_BUILDDIR}
+          CARGO_HOME=${FLATPAK_BUILDER_BUILDDIR}/cargo
+          CARGO_INSTALL_ROOT=${FLATPAK_DEST}
+    build-commands:
+      - eval ${CARGO_VARS} cargo fetch
+      - eval ${CARGO_VARS} cargo build --features=dist-server --release
+     #- eval ${CARGO_VARS} cargo install --features=dist-server --no-track --path=.
+      - install -Dm755 target/x86_64-unknown-linux-musl/release/sccache{,-dist} -t ${FLATPAK_DEST}/bin/
+    sources:
+      - type: archive
+        url: https://github.com/mozilla/sccache/archive/v0.3.0/sccache-0.3.0.tar.gz
+        sha256: 26585447d07f67d0336125816680a2a5f7381065a03de3fd423a3b5c41eb637c
+        x-checker-data:
+          type: anitya
+          project-id: 227267
+          stable-only: true
+          url-template: https://github.com/mozilla/sccache/archive/v0.3.0/sccache-0.3.0.tar.gz
+      - sccache-cargo-sources.json # flatpak-cargo-generator.py Cargo.lock -o sccache-cargo-sources.json
+      - type: file
+        dest: .cargo
+        dest-filename: config
+        path: cargo-musl-config
+    modules:
+      - name: openssl-static
+        no-make-install: true
+        config-opts:
+          - --libdir=lib
+          - --openssldir=/etc/ssl
+          - -static
+          - no-ssl3-method
+          - enable-ec_nistp_64_gcc_128
+          - linux-x86_64
+          - -Wa,--noexecstack
+        build-commands:
+          - make install_sw
+        sources:
+          - type: archive
+            url: https://www.openssl.org/source/openssl-1.1.1q.tar.gz
+            sha256: d7939ce614029cdff0b6c20f0e2e5703158a489a72b2507b8bd51bf8c8fd10ca
+            x-checker-data:
+              type: anitya
+              project-id: 2566
+              stable-only: true
+              versions:
+                <: 2.0.0
+              version-scheme: semantic
+              url-template: https://www.openssl.org/source/openssl-$version.tar.gz
+          - type: patch
+            # https://github.com/openssl/openssl/issues/14574
+            path: openssl-static-threads.patch
+            options:
+              - --reverse
+          - type: shell
+            commands:
+              - ln -s {C,c}onfigure
+        cleanup:
+          - '*'
+
+  - name: packaging
+    buildsystem: simple
+    build-commands:
+      - install -Dm755 enable.sh -t ${FLATPAK_DEST}/
+    sources:
+      - type: script
+        dest-filename: enable.sh
+        commands:
+          - |
+            SDKPATH=/usr/lib/sdk/sccache
+            export PATH=${SDKPATH}/bin:$PATH
