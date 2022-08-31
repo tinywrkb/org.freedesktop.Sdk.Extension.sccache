@@ -81,7 +81,7 @@ modules:
           type: anitya
           project-id: 227267
           stable-only: true
-          url-template: https://github.com/mozilla/sccache/archive/v0.3.0/sccache-0.3.0.tar.gz
+          url-template: https://github.com/mozilla/sccache/archive/v$version/sccache-$version.tar.gz
       - sccache-cargo-sources.json # flatpak-cargo-generator.py Cargo.lock -o sccache-cargo-sources.json
       - type: file
         dest: .cargo
