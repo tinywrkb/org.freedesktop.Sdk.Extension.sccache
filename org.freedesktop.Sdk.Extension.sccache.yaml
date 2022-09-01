@@ -62,7 +62,6 @@ modules:
   - name: sccache-static # build from source
     buildsystem: simple
     build-options:
-      append-ld-library-path: /usr/lib/sdk/musl/x86_64-linux-musl/lib
       env:
         - CARGO_VARS=
           HOME=${FLATPAK_BUILDER_BUILDDIR}
