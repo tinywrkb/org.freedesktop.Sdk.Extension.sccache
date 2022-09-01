@@ -11,7 +11,7 @@ sdk-extensions:
 build-options:
   cflags: -static -I/usr/lib/sdk/sccache/include
   cxxflags: -static -I/usr/lib/sdk/sccache/include
-  ldflags: -static -L/usr/lib/sdk/sccache/lib
+  ldflags: -static -Wl,-fuse-ld=mold -L/usr/lib/sdk/sccache/lib
   prefix: /usr/lib/sdk/sccache
   libdir: /usr/lib/sdk/sccache/lib
   prepend-path: /usr/lib/sdk/sccache/bin
@@ -20,8 +20,10 @@ build-options:
   append-path: /usr/lib/sdk/musl/bin:/usr/lib/sdk/rust-musl/bin
   strip: true
   env:
+    - AR=x86_64-linux-musl-ar
     - CC=x86_64-linux-musl-gcc
     - CXX=x86_64-linux-musl-g++
+    - LD=x86_64-linux-musl-ld.mold
 
 modules:
   - name: prepare-ccache
